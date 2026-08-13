@@ -1,0 +1,14 @@
+<template>
+    <div class="language-picker-container slds-p-horizontal_small">
+        <lightning-combobox
+            name="languageSelect"
+            label="Select Language"
+            value={currentLanguage}
+            placeholder="Language"
+            options={languageOptions}
+            onchange={handleLanguageChange}
+            variant="label-hidden"
+            class="language-combobox"
+        ></lightning-combobox>
+    </div>
+</template>

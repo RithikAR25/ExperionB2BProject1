@@ -1,0 +1,214 @@
+<template>
+
+    <lightning-card title="Buyer User Management">
+
+        <!-- HEADER -->
+
+        <div class="slds-p-around_medium">
+
+            <lightning-button
+                label="Create Buyer User"
+                variant="brand"
+                onclick={handleCreateUser}>
+            </lightning-button>
+
+        </div>
+
+
+        <!-- CREATE FORM -->
+
+        <template if:true={showCreateForm}>
+
+            <div class="slds-p-around_medium">
+
+                <h2
+                    class="slds-text-heading_medium
+                           slds-m-bottom_medium">
+
+                    Create Buyer User
+
+                </h2>
+
+
+                <!-- FIRST NAME -->
+
+                <lightning-input
+                    name="firstName"
+                    label="First Name"
+                    value={newUser.firstName}
+                    onchange={handleChange}
+                    required>
+                </lightning-input>
+
+
+                <!-- LAST NAME -->
+
+                <lightning-input
+                    name="lastName"
+                    label="Last Name"
+                    value={newUser.lastName}
+                    onchange={handleChange}
+                    required>
+                </lightning-input>
+
+
+                <!-- EMAIL -->
+
+                <lightning-input
+                    type="email"
+                    name="email"
+                    label="Email"
+                    value={newUser.email}
+                    onchange={handleChange}
+                    required>
+                </lightning-input>
+
+
+                <!-- PHONE -->
+
+                <lightning-input
+                    type="tel"
+                    name="phone"
+                    label="Phone"
+                    value={newUser.phone}
+                    onchange={handleChange}>
+                </lightning-input>
+
+
+                <!-- BUTTONS -->
+
+                <div class="slds-m-top_medium">
+
+                    <lightning-button
+                        label="Cancel"
+                        onclick={handleCancel}
+                        disabled={isLoading}>
+                    </lightning-button>
+
+
+                    <lightning-button
+                        class="slds-m-left_small"
+                        label="Create"
+                        variant="brand"
+                        onclick={handleSaveUser}
+                        disabled={isLoading}>
+                    </lightning-button>
+
+                </div>
+
+            </div>
+
+        </template>
+
+
+        <!-- USER LIST -->
+
+        <template if:true={users.length}>
+
+            <div class="slds-p-around_medium">
+
+                <table
+                    class="slds-table
+                           slds-table_cell-buffer
+                           slds-table_bordered">
+
+                    <thead>
+
+                        <tr>
+
+                            <th scope="col">
+                                Name
+                            </th>
+
+                            <th scope="col">
+                                Email
+                            </th>
+
+                            <th scope="col">
+                                Phone
+                            </th>
+
+                            <th scope="col">
+                                Status
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        <template
+                            for:each={users}
+                            for:item="user">
+
+                            <tr key={user.Id}>
+
+                                <td>
+                                    {user.Name}
+                                </td>
+
+                                <td>
+                                    {user.Email}
+                                </td>
+
+                                <td>
+                                    {user.Phone}
+                                </td>
+
+                                <td>
+
+                                    <template
+                                        if:true={user.Users.length}>
+
+                                        <span>
+                                            Active User
+                                        </span>
+
+                                    </template>
+
+                                    <template
+                                        if:false={user.Users.length}>
+
+                                        <span>
+                                            Contact Only
+                                        </span>
+
+                                    </template>
+
+                                </td>
+
+                            </tr>
+
+                        </template>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </template>
+
+
+        <!-- NO USERS -->
+
+        <template if:false={users.length}>
+
+            <template if:false={showCreateForm}>
+
+                <div class="slds-p-around_medium">
+
+                    No users found.
+
+                </div>
+
+            </template>
+
+        </template>
+
+
+    </lightning-card>
+
+</template>
