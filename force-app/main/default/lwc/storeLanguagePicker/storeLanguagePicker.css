@@ -1,0 +1,241 @@
+/* ============================================================
+   MODIFIED SECTION: Compact language picker host
+   ============================================================ */
+
+:host {
+    display: block;
+
+    width: 100px;
+    height: 24px;
+
+    margin: 0;
+    padding: 0;
+}
+
+
+/* ============================================================
+   MODIFIED SECTION: Container
+   ============================================================ */
+
+.language-picker-container {
+    position: relative;
+
+    width: 100px;
+    height: 24px;
+
+    margin: 0;
+    padding: 0;
+
+    display: flex;
+    align-items: center;
+}
+
+
+/* ============================================================
+   MODIFIED SECTION: Combobox
+   ============================================================ */
+
+.language-combobox {
+    position: relative;
+
+    width: 100px;
+    height: 24px;
+
+    margin: 0;
+    padding: 0;
+}
+
+
+/* ============================================================
+   MODIFIED SECTION: Actual visible 24px button
+   ============================================================
+   This is the element that replaces the internal
+   lightning-combobox control.
+
+   Because this is our own HTML element, padding and height
+   are now completely under our control.
+   ============================================================ */
+
+.language-combobox-button {
+    box-sizing: border-box;
+
+    width: 100px;
+    height: 24px;
+    min-height: 24px;
+    max-height: 24px;
+
+    margin: 0;
+    padding: 0 6px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    border: 1px solid #8c8c8c;
+    border-radius: 3px;
+
+    background: #ffffff;
+
+    color: #181818;
+
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 22px;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    box-sizing: border-box;
+}
+
+
+/* ============================================================
+   MODIFIED SECTION: Button hover/focus
+   ============================================================ */
+
+.language-combobox-button:hover {
+    border-color: #5c5c5c;
+}
+
+.language-combobox-button:focus {
+    outline: none;
+    border-color: #5c5c5c;
+    box-shadow: 0 0 0 1px #5c5c5c;
+}
+
+
+/* ============================================================
+   MODIFIED SECTION: Language text
+   ============================================================ */
+
+.language-label {
+    min-width: 0;
+
+    flex: 1;
+
+    overflow: hidden;
+
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    line-height: 22px;
+}
+
+
+/* ============================================================
+   MODIFIED SECTION: Dropdown arrow
+   ============================================================ */
+
+.language-arrow {
+    flex: 0 0 auto;
+
+    margin-left: 4px;
+
+    --slds-c-icon-color-foreground-default: #5c5c5c;
+}
+
+
+/* ============================================================
+   MODIFIED SECTION: Dropdown menu
+   ============================================================ */
+
+.language-dropdown {
+    position: absolute;
+
+    top: 28px;
+    right: 0;
+
+    z-index: 9999;
+
+    width: 160px;
+
+    margin: 0;
+    padding: 4px 0;
+
+    background: #ffffff;
+
+    border: 1px solid #d8dde6;
+    border-radius: 3px;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+
+    box-sizing: border-box;
+}
+
+
+/* ============================================================
+   MODIFIED SECTION: Dropdown option
+   ============================================================ */
+
+.language-option {
+    box-sizing: border-box;
+
+    width: 100%;
+    min-height: 28px;
+
+    margin: 0;
+    padding: 4px 8px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    border: 0;
+
+    background: #ffffff;
+
+    color: #181818;
+
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 20px;
+
+    text-align: left;
+
+    cursor: pointer;
+}
+
+
+/* ============================================================
+   MODIFIED SECTION: Option hover
+   ============================================================ */
+
+.language-option:hover {
+    background: #f3f3f3;
+}
+
+
+/* ============================================================
+   MODIFIED SECTION: Selected option
+   ============================================================ */
+
+.language-option-selected {
+    font-weight: 600;
+}
+
+
+/* ============================================================
+   MODIFIED SECTION: Option label
+   ============================================================ */
+
+.language-option-label {
+    overflow: hidden;
+
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+
+/* ============================================================
+   MODIFIED SECTION: Check icon
+   ============================================================ */
+
+.language-check {
+    flex: 0 0 auto;
+
+    margin-left: 8px;
+
+    --slds-c-icon-color-foreground-default: #2e844a;
+}

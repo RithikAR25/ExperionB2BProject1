@@ -1,14 +1,91 @@
 <template>
-    <div class="language-picker-container slds-p-horizontal_small">
-        <lightning-combobox
-            name="languageSelect"
-            label="Select Language"
-            value={currentLanguage}
-            placeholder="Language"
-            options={languageOptions}
-            onchange={handleLanguageChange}
-            variant="label-hidden"
+    <!-- ============================================================
+         MODIFIED SECTION: Custom compact SLDS combobox
+
+         We are no longer using lightning-combobox because its
+         internal height/padding cannot be reliably controlled
+         in SLDS 2.
+
+         This uses the SLDS combobox structure directly, giving
+         us complete control over the 24px height.
+         ============================================================ -->
+
+    <div
+        class="language-picker-container"
+        onclick={handleContainerClick}
+    >
+
+        <div
             class="language-combobox"
-        ></lightning-combobox>
+            role="combobox"
+            aria-expanded={isMenuOpen}
+            aria-haspopup="listbox"
+            aria-label="Select Language"
+        >
+
+            <!-- ====================================================
+                 MODIFIED: 24px trigger button
+                 ==================================================== -->
+            <button
+                class="language-combobox-button"
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={isMenuOpen}
+                onclick={toggleMenu}
+                onkeydown={handleButtonKeyDown}
+            >
+                <span class="language-label">
+                    {currentLanguageLabel}
+                </span>
+
+                <lightning-icon
+                    icon-name="utility:down"
+                    alternative-text=""
+                    size="xx-small"
+                    class="language-arrow"
+                ></lightning-icon>
+            </button>
+
+
+            <!-- ====================================================
+                 MODIFIED: Custom dropdown
+                 ==================================================== -->
+            <template if:true={isMenuOpen}>
+                <div
+                    class="language-dropdown"
+                    role="listbox"
+                >
+                    <template
+                        for:each={languageOptions}
+                        for:item="language"
+                    >
+                        <button
+                            key={language.value}
+                            type="button"
+                            class={language.cssClass}
+                            data-value={language.value}
+                            role="option"
+                            aria-selected={language.isSelected}
+                            onclick={handleLanguageChange}
+                        >
+                            <span class="language-option-label">
+                                {language.label}
+                            </span>
+
+                            <template if:true={language.isSelected}>
+                                <lightning-icon
+                                    icon-name="utility:check"
+                                    alternative-text="Selected"
+                                    size="xx-small"
+                                    class="language-check"
+                                ></lightning-icon>
+                            </template>
+                        </button>
+                    </template>
+                </div>
+            </template>
+
+        </div>
+
     </div>
 </template>
