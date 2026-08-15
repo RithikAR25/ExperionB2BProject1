@@ -1,0 +1,291 @@
+<template>
+
+    <!-- ============================================================
+         MODIFICATION SECTION:
+         Main approval gate UI.
+         ============================================================ -->
+
+    <lightning-card
+        title="Order Approval"
+        icon-name="standard:approval"
+    >
+
+        <div class="slds-p-around_medium">
+
+            <!-- ====================================================
+                 LOADING
+                 ==================================================== -->
+
+            <template lwc:if={isLoading}>
+
+                <div class="loading-container">
+
+                    <lightning-spinner
+                        alternative-text="Checking approval status"
+                        size="small">
+                    </lightning-spinner>
+
+                    <p class="slds-m-top_small">
+                        Checking approval status...
+                    </p>
+
+                </div>
+
+            </template>
+
+
+            <!-- ====================================================
+                 ERROR
+                 ==================================================== -->
+
+            <template lwc:if={hasError}>
+
+                <div
+                    class="slds-notify slds-notify_alert slds-alert_error"
+                    role="alert"
+                >
+
+                    <span class="slds-assistive-text">
+                        Error
+                    </span>
+
+                    <h2>
+                        {errorMessage}
+                    </h2>
+
+                </div>
+
+                <div class="slds-m-top_medium">
+
+                    <lightning-button
+                        label="Try Again"
+                        onclick={handleRefresh}>
+                    </lightning-button>
+
+                </div>
+
+            </template>
+
+
+            <!-- ====================================================
+                 NO APPROVAL REQUEST
+                 ==================================================== -->
+
+            <template lwc:if={showRequestForm}>
+
+                <div class="approval-content">
+
+                    <div class="status-badge required">
+                        Approval Required
+                    </div>
+
+                    <h2
+                        class="slds-text-heading_small slds-m-top_small"
+                    >
+                        This order requires approval
+                    </h2>
+
+                    <p class="slds-m-top_small">
+
+                        An administrator must approve this order
+                        before you can complete the purchase.
+
+                    </p>
+
+
+                    <!-- =================================================
+                         Buyer notes
+                         ================================================= -->
+
+                    <lightning-textarea
+                        class="slds-m-top_medium"
+                        name="requestNotes"
+                        label="Notes for the approver"
+                        placeholder="Optional message for the administrator"
+                        value={requestNotes}
+                        onchange={handleNotesChange}
+                        maxlength="32000">
+                    </lightning-textarea>
+
+
+                    <lightning-button
+                        class="slds-m-top_medium"
+                        variant="brand"
+                        label="Request Approval"
+                        onclick={handleRequestApproval}
+                        disabled={isSubmitting}>
+                    </lightning-button>
+
+                </div>
+
+            </template>
+
+
+            <!-- ====================================================
+                 PENDING
+                 ==================================================== -->
+
+            <template lwc:if={showPending}>
+
+                <div class="approval-content">
+
+                    <div class="status-badge pending">
+                        Pending
+                    </div>
+
+                    <h2
+                        class="slds-text-heading_small slds-m-top_small"
+                    >
+                        Waiting for administrator approval
+                    </h2>
+
+                    <p class="slds-m-top_small">
+
+                        Your approval request has been submitted
+                        and is waiting for review.
+
+                    </p>
+
+
+                    <template lwc:if={approvalNumber}>
+
+                        <p class="slds-m-top_small">
+
+                            <strong>
+                                Approval Request:
+                            </strong>
+
+                            {approvalNumber}
+
+                        </p>
+
+                    </template>
+
+
+                    <lightning-button
+                        class="slds-m-top_medium"
+                        label="Refresh Status"
+                        onclick={handleRefresh}
+                        disabled={isRefreshing}>
+                    </lightning-button>
+
+                </div>
+
+            </template>
+
+
+            <!-- ====================================================
+                 APPROVED
+                 ==================================================== -->
+
+            <template lwc:if={showApproved}>
+
+                <div class="approval-content">
+
+                    <div class="status-badge approved">
+                        Approved
+                    </div>
+
+                    <h2
+                        class="slds-text-heading_small slds-m-top_small"
+                    >
+                        Order approved
+                    </h2>
+
+                    <p class="slds-m-top_small">
+
+                        Your order has been approved by the
+                        administrator.
+
+                    </p>
+
+                    <p class="slds-m-top_small">
+
+                        You can continue with checkout.
+
+                    </p>
+
+
+                    <template lwc:if={approvalNumber}>
+
+                        <p class="slds-m-top_small">
+
+                            <strong>
+                                Approval Request:
+                            </strong>
+
+                            {approvalNumber}
+
+                        </p>
+
+                    </template>
+
+                </div>
+
+            </template>
+
+
+            <!-- ====================================================
+                 REJECTED
+                 ==================================================== -->
+
+            <template lwc:if={showRejected}>
+
+                <div class="approval-content">
+
+                    <div class="status-badge rejected">
+                        Rejected
+                    </div>
+
+                    <h2
+                        class="slds-text-heading_small slds-m-top_small"
+                    >
+                        Approval request rejected
+                    </h2>
+
+
+                    <template lwc:if={decisionNotes}>
+
+                        <div class="slds-m-top_medium">
+
+                            <strong>
+                                Administrator Notes
+                            </strong>
+
+                            <p class="slds-m-top_x-small">
+                                {decisionNotes}
+                            </p>
+
+                        </div>
+
+                    </template>
+
+
+                    <lightning-textarea
+                        class="slds-m-top_medium"
+                        name="requestNotes"
+                        label="Notes for the approver"
+                        placeholder="Optional message for the administrator"
+                        value={requestNotes}
+                        onchange={handleNotesChange}
+                        maxlength="32000">
+                    </lightning-textarea>
+
+
+                    <lightning-button
+                        class="slds-m-top_medium"
+                        variant="brand"
+                        label="Request Approval Again"
+                        onclick={handleRequestApproval}
+                        disabled={isSubmitting}>
+                    </lightning-button>
+
+                </div>
+
+            </template>
+
+        </div>
+
+    </lightning-card>
+
+</template>

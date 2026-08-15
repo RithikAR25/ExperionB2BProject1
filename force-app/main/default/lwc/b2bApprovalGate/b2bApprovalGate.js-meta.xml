@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle
+    xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <!-- ============================================================
+         MODIFICATION SECTION:
+         Current Salesforce API version.
+         ============================================================ -->
+
+    <apiVersion>67.0</apiVersion>
+
+    <isExposed>true</isExposed>
+
+    <masterLabel>
+        B2B Approval Gate
+    </masterLabel>
+
+    <description>
+        Displays the buyer's B2B Commerce approval status and
+        allows the buyer to submit an order approval request.
+    </description>
+
+    <targets>
+
+        <!--
+            Makes the component available in Experience Builder's
+            Components panel.
+        -->
+        <target>
+            lightningCommunity__Page
+        </target>
+
+    </targets>
+
+</LightningComponentBundle>
