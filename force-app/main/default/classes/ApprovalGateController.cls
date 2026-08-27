@@ -13,7 +13,15 @@ public with sharing class ApprovalGateController {
     /**
      * Get the current buyer's approval request for the current cart.
      */
-    @AuraEnabled(cacheable=true)
+    // ================================================================
+// MODIFICATION:
+// Do not cache the current approval status.
+//
+// The administrator can approve/reject the request from Salesforce
+// CRM while the buyer's checkout page is still open. Therefore,
+// Refresh Status must retrieve the current value from Salesforce.
+// ================================================================
+    @AuraEnabled
     public static Map<String, Object> getCurrentApproval(Id cartId) {
 
         validateCartId(cartId);
@@ -41,7 +49,7 @@ public with sharing class ApprovalGateController {
             FROM Approval_Request__c
             WHERE Cart_Id__c = :String.valueOf(cart.Id)
               AND Requester__c = :UserInfo.getUserId()
-            WITH USER_MODE
+            WITH SYSTEM_MODE
             ORDER BY CreatedDate DESC
             LIMIT 1
         ];
@@ -187,24 +195,35 @@ public with sharing class ApprovalGateController {
             sanitizeNotes(requestNotes);
 
 
-        /*
-         * ============================================================
-         * MODIFICATION:
-         * Insert using USER_MODE.
-         * ============================================================
-         */
+        // ================================================================
+        // MODIFICATION SECTION:
+        // Return the actual DML error during development.
+        // ================================================================
+
         Database.SaveResult insertResult =
-            Database.insert(
-                request,
-                AccessLevel.USER_MODE
-            );
+    Database.insert(
+        request,
+        AccessLevel.USER_MODE
+    );
 
-        if (!insertResult.isSuccess()) {
+if (!insertResult.isSuccess()) {
 
-            throw new AuraHandledException(
-                'The Approval Request could not be created.'
-            );
-        }
+    List<String> errors = new List<String>();
+
+    for (Database.Error error : insertResult.getErrors()) {
+
+        errors.add(
+            String.valueOf(error.getStatusCode()) +
+            ': ' +
+            error.getMessage()
+        );
+    }
+
+    throw new AuraHandledException(
+        'Approval Request insert failed: ' +
+        String.join(errors, ' | ')
+    );
+}
 
 
         /*
@@ -223,15 +242,32 @@ public with sharing class ApprovalGateController {
                 : request.Request_Notes__c
         );
 
-        Approval.ProcessResult result =
-            Approval.process(submitRequest);
+        // ================================================================
+// MODIFICATION SECTION:
+// Capture the actual Salesforce Approval Process result.
+// ================================================================
 
-        if (!result.isSuccess()) {
+Approval.ProcessResult result =
+    Approval.process(submitRequest);
 
-            throw new AuraHandledException(
-                'The Approval Request was created, but it could not be submitted for approval.'
-            );
-        }
+if (!result.isSuccess()) {
+
+    List<String> errors = new List<String>();
+
+    for (Database.Error error : result.getErrors()) {
+
+        errors.add(
+            String.valueOf(error.getStatusCode()) +
+            ': ' +
+            error.getMessage()
+        );
+    }
+
+    throw new AuraHandledException(
+        'Approval submission failed: ' +
+        String.join(errors, ' | ')
+    );
+}
 
 
         /*
@@ -395,14 +431,24 @@ public with sharing class ApprovalGateController {
         }
 
 
-        // 4. Detect a cart modification after approval.
-        if (
-            request.Cart_Last_Modified__c != null &&
-            cart.LastModifiedDate !=
-            request.Cart_Last_Modified__c
-        ) {
-            return false;
-        }
+        // ================================================================
+// FIX:
+// Detect only a cart modification that happened AFTER approval.
+//
+// Do NOT require the two LastModifiedDate values to be exactly
+// equal. The cart can legitimately have a later LastModifiedDate
+// while still representing the cart that was approved.
+//
+// If the current cart was modified after the approval snapshot,
+// reject checkout.
+// ================================================================
+if (
+    request.Cart_Last_Modified__c != null &&
+    cart.LastModifiedDate >
+    request.Cart_Last_Modified__c
+) {
+    return false;
+}
 
         return true;
     }
@@ -432,7 +478,7 @@ public with sharing class ApprovalGateController {
                 LastModifiedDate
             FROM WebCart
             WHERE Id = :cartId
-            WITH USER_MODE
+            WITH SYSTEM_MODE
             LIMIT 1
         ];
 

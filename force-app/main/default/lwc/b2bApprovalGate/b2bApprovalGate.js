@@ -1,5 +1,14 @@
 import { LightningElement, wire } from 'lwc';
 
+// ================================================================
+// MODIFICATION:
+// Register the LWC with Salesforce Commerce Checkout so the
+// component can participate in checkout validation.
+// ================================================================
+import {
+    useCheckoutComponent
+} from 'commerce/checkoutApi';
+
 import {
     CartSummaryAdapter
 } from 'commerce/cartApi';
@@ -10,13 +19,53 @@ import getCurrentApproval from
 import requestApproval from
     '@salesforce/apex/ApprovalGateController.requestApproval';
 
+// ================================================================
+// MODIFICATION:
+// Use the existing server-side validation method from
+// ApprovalGateController before allowing checkout to continue.
+// ================================================================
+import validateApprovalForCheckout from
+    '@salesforce/apex/ApprovalGateController.validateApprovalForCheckout';
 
-export default class B2bApprovalGate extends LightningElement {
 
-    // ================================================================
-    // MODIFICATION SECTION:
-    // Component state.
-    // ================================================================
+// ================================================================
+// MODIFICATION:
+// Salesforce Commerce Checkout lifecycle stages.
+// ================================================================
+const CheckoutStage = {
+
+    CHECK_VALIDITY_UPDATE:
+        'CHECK_VALIDITY_UPDATE',
+
+    REPORT_VALIDITY_SAVE:
+        'REPORT_VALIDITY_SAVE',
+
+    BEFORE_PAYMENT:
+        'BEFORE_PAYMENT',
+
+    PAYMENT:
+        'PAYMENT',
+
+    BEFORE_PLACE_ORDER:
+        'BEFORE_PLACE_ORDER',
+
+    PLACE_ORDER:
+        'PLACE_ORDER'
+};
+
+
+// ================================================================
+// MODIFICATION:
+// Extend useCheckoutComponent so Salesforce Commerce can invoke
+// checkValidity(), reportValidity(), and stageAction().
+// ================================================================
+export default class B2bApprovalGate
+    extends useCheckoutComponent(LightningElement) {
+
+
+    // ============================================================
+    // COMPONENT STATE
+    // ============================================================
 
     cartId;
 
@@ -33,25 +82,14 @@ export default class B2bApprovalGate extends LightningElement {
     errorMessage;
 
 
-    // ================================================================
-    // MODIFICATION SECTION:
-    // Get the current Commerce cart.
-    //
-    // The buyer does NOT enter the Cart ID.
-    // Salesforce Commerce supplies the current cart.
-    // ================================================================
+    // ============================================================
+    // CURRENT CART
+    // ============================================================
 
     @wire(CartSummaryAdapter)
     wiredCartSummary({ data, error }) {
 
         if (data) {
-
-            /*
-             * Commerce's CartSummaryAdapter provides current-cart
-             * summary information.
-             *
-             * We only need the cart ID for the Apex controller.
-             */
 
             this.cartId = data.cartId;
 
@@ -77,10 +115,9 @@ export default class B2bApprovalGate extends LightningElement {
     }
 
 
-    // ================================================================
-    // MODIFICATION SECTION:
-    // Load the approval request associated with the current cart.
-    // ================================================================
+    // ============================================================
+    // LOAD CURRENT APPROVAL
+    // ============================================================
 
     async loadApproval() {
 
@@ -90,13 +127,12 @@ export default class B2bApprovalGate extends LightningElement {
                 'The current cart could not be determined.';
 
             this.isLoading = false;
+            this.isRefreshing = false;
 
             return;
         }
 
-
         this.errorMessage = undefined;
-
 
         try {
 
@@ -105,9 +141,26 @@ export default class B2bApprovalGate extends LightningElement {
                     cartId: this.cartId
                 });
 
-
             this.approval = result;
 
+            // ====================================================
+            // FIX:
+            // If the page loads and Salesforce already reports the
+            // approval as Approved, clear any stale Commerce
+            // Checkout validation error.
+            // ====================================================
+
+            if (
+                result?.status === 'Approved' &&
+                result?.approvalRequestId
+            ) {
+
+                this.errorMessage = undefined;
+
+                await this.dispatchUpdateErrorAsync({
+                    groupId: 'B2BApprovalGate'
+                });
+            }
 
         } catch (error) {
 
@@ -115,7 +168,6 @@ export default class B2bApprovalGate extends LightningElement {
 
             this.errorMessage =
                 this.normalizeError(error);
-
 
         } finally {
 
@@ -126,20 +178,9 @@ export default class B2bApprovalGate extends LightningElement {
     }
 
 
-    // ================================================================
-    // MODIFICATION SECTION:
-    // Buyer clicks Request Approval.
-    //
-    // Only the cart ID and optional notes are sent.
-    //
-    // The Apex controller determines:
-    // - Buyer
-    // - Amount
-    // - Currency
-    // - Requester
-    // - Status
-    // - Request timestamp
-    // ================================================================
+    // ============================================================
+    // REQUEST APPROVAL
+    // ============================================================
 
     async handleRequestApproval() {
 
@@ -151,11 +192,9 @@ export default class B2bApprovalGate extends LightningElement {
             return;
         }
 
-
         this.isSubmitting = true;
 
         this.errorMessage = undefined;
-
 
         try {
 
@@ -167,17 +206,14 @@ export default class B2bApprovalGate extends LightningElement {
                     requestNotes: this.requestNotes
                 });
 
-
             this.approval = result;
 
             this.requestNotes = '';
-
 
         } catch (error) {
 
             this.errorMessage =
                 this.normalizeError(error);
-
 
         } finally {
 
@@ -186,23 +222,88 @@ export default class B2bApprovalGate extends LightningElement {
     }
 
 
-    // ================================================================
-    // MODIFICATION SECTION:
-    // Refresh approval status.
-    // ================================================================
+    // ============================================================
+    // REFRESH APPROVAL STATUS
+    // ============================================================
 
     async handleRefresh() {
 
+        if (!this.cartId) {
+
+            this.errorMessage =
+                'The current cart could not be determined.';
+
+            return;
+        }
+
         this.isRefreshing = true;
 
-        await this.loadApproval();
+        // ========================================================
+        // FIX:
+        // Clear the local error before retrieving the latest
+        // approval status.
+        // ========================================================
+
+        this.errorMessage = undefined;
+
+        try {
+
+            const result =
+                await getCurrentApproval({
+
+                    cartId: this.cartId
+                });
+
+            // ====================================================
+            // MODIFICATION:
+            // Replace the current approval state with the latest
+            // state returned from Salesforce.
+            // ====================================================
+
+            this.approval = result;
+
+
+            // ====================================================
+            // FIX:
+            // IMPORTANT:
+            //
+            // When the administrator approves the request in CRM,
+            // Refresh Status gets the new Approved record.
+            //
+            // Explicitly clear the old Commerce Checkout error
+            // here. Otherwise the old Pending validation message
+            // can remain visible even though the approval is now
+            // Approved.
+            // ====================================================
+
+            if (
+                result?.status === 'Approved' &&
+                result?.approvalRequestId
+            ) {
+
+                this.errorMessage = undefined;
+
+                await this.dispatchUpdateErrorAsync({
+                    groupId: 'B2BApprovalGate'
+                });
+            }
+
+
+        } catch (error) {
+
+            this.errorMessage =
+                this.normalizeError(error);
+
+        } finally {
+
+            this.isRefreshing = false;
+        }
     }
 
 
-    // ================================================================
-    // MODIFICATION SECTION:
-    // Capture buyer notes.
-    // ================================================================
+    // ============================================================
+    // NOTES
+    // ============================================================
 
     handleNotesChange(event) {
 
@@ -211,14 +312,24 @@ export default class B2bApprovalGate extends LightningElement {
     }
 
 
-    // ================================================================
-    // MODIFICATION SECTION:
-    // Approval state getters.
-    // ================================================================
+    // ============================================================
+    // APPROVAL GETTERS
+    // ============================================================
 
     get status() {
 
         return this.approval?.status;
+    }
+
+
+    // ============================================================
+    // MODIFICATION:
+    // Approval Request ID used by server-side checkout validation.
+    // ============================================================
+
+    get approvalRequestId() {
+
+        return this.approval?.approvalRequestId;
     }
 
 
@@ -234,15 +345,15 @@ export default class B2bApprovalGate extends LightningElement {
     }
 
 
+    // ============================================================
+    // DISPLAY STATE
+    // ============================================================
+
     get showRequestForm() {
 
         return (
             !this.isLoading &&
-            !this.hasError &&
-            (
-                !this.approval ||
-                this.status === 'Rejected'
-            )
+            !this.approval
         );
     }
 
@@ -251,7 +362,6 @@ export default class B2bApprovalGate extends LightningElement {
 
         return (
             !this.isLoading &&
-            !this.hasError &&
             this.status === 'Pending'
         );
     }
@@ -261,7 +371,6 @@ export default class B2bApprovalGate extends LightningElement {
 
         return (
             !this.isLoading &&
-            !this.hasError &&
             this.status === 'Approved'
         );
     }
@@ -271,7 +380,6 @@ export default class B2bApprovalGate extends LightningElement {
 
         return (
             !this.isLoading &&
-            !this.hasError &&
             this.status === 'Rejected'
         );
     }
@@ -283,10 +391,230 @@ export default class B2bApprovalGate extends LightningElement {
     }
 
 
-    // ================================================================
-    // MODIFICATION SECTION:
-    // Convert Salesforce/Apex errors into readable text.
-    // ================================================================
+    // ============================================================
+    // MODIFICATION:
+    // Local Commerce checkout validation.
+    //
+    // Only an Approved approval request is valid.
+    //
+    // Pending  -> false
+    // Rejected -> false
+    // Approved -> true
+    // ============================================================
+
+    checkValidity() {
+
+        return (
+            !this.isLoading &&
+            this.status === 'Approved' &&
+            Boolean(this.approvalRequestId)
+        );
+    }
+
+
+    // ============================================================
+    // MODIFICATION:
+    // Report validation result to Salesforce Commerce Checkout.
+    // ============================================================
+
+    reportValidity() {
+
+        const valid =
+            this.checkValidity();
+
+
+        if (!valid) {
+
+            const message =
+                'Approval is required before you can continue to payment.';
+
+            this.errorMessage =
+                message;
+
+            this.dispatchUpdateErrorAsync({
+
+                groupId:
+                    'B2BApprovalGate',
+
+                type:
+                    '/commerce/errors/checkout-failure',
+
+                exception:
+                    message
+            });
+
+            return false;
+        }
+
+
+        // ========================================================
+        // MODIFICATION:
+        // Clear the previous checkout validation error when
+        // approval is now valid.
+        // ========================================================
+
+        this.errorMessage =
+            undefined;
+
+        this.dispatchUpdateErrorAsync({
+
+            groupId:
+                'B2BApprovalGate'
+        });
+
+        return true;
+    }
+
+
+    // ============================================================
+    // MODIFICATION:
+    // Authoritative server-side approval validation.
+    //
+    // ApprovalGateController.validateApprovalForCheckout()
+    // verifies the approval against the current cart.
+    // ============================================================
+
+    async validateApprovalOnServer() {
+
+        if (!this.cartId) {
+
+            this.errorMessage =
+                'The current cart could not be determined.';
+
+            return false;
+        }
+
+
+        if (!this.approvalRequestId) {
+
+            this.errorMessage =
+                'An approval request is required before continuing.';
+
+            return false;
+        }
+
+
+        try {
+
+            const isValid =
+                await validateApprovalForCheckout({
+
+                    cartId:
+                        this.cartId,
+
+                    approvalRequestId:
+                        this.approvalRequestId
+                });
+
+
+            if (!isValid) {
+
+                const message =
+                    'Approval is required before you can continue to payment.';
+
+                this.errorMessage =
+                    message;
+
+                await this.dispatchUpdateErrorAsync({
+
+                    groupId:
+                        'B2BApprovalGate',
+
+                    type:
+                        '/commerce/errors/checkout-failure',
+
+                    exception:
+                        message
+                });
+
+                return false;
+            }
+
+
+            // ====================================================
+            // MODIFICATION:
+            // Clear any previous checkout validation error when
+            // server-side approval validation succeeds.
+            // ====================================================
+
+            this.errorMessage =
+                undefined;
+
+            await this.dispatchUpdateErrorAsync({
+
+                groupId:
+                    'B2BApprovalGate'
+            });
+
+            return true;
+
+
+        } catch (error) {
+
+            this.errorMessage =
+                this.normalizeError(error);
+
+            await this.dispatchUpdateErrorAsync({
+
+                groupId:
+                    'B2BApprovalGate',
+
+                type:
+                    '/commerce/errors/checkout-failure',
+
+                exception:
+                    this.errorMessage
+            });
+
+            return false;
+        }
+    }
+
+
+    // ============================================================
+    // MODIFICATION:
+    // Salesforce Commerce Checkout lifecycle.
+    //
+    // CHECK_VALIDITY_UPDATE:
+    //     Performs local validation.
+    //
+    // REPORT_VALIDITY_SAVE:
+    //     Performs local validation and then authoritative
+    //     server-side Apex validation.
+    //
+    // Returning false prevents checkout progression.
+    // ============================================================
+
+    async stageAction(checkoutStage) {
+
+        switch (checkoutStage) {
+
+
+            case CheckoutStage.CHECK_VALIDITY_UPDATE:
+
+                return this.checkValidity();
+
+
+            case CheckoutStage.REPORT_VALIDITY_SAVE:
+
+                if (!this.checkValidity()) {
+
+                    return this.reportValidity();
+                }
+
+                return await this.validateApprovalOnServer();
+
+
+            default:
+
+                return true;
+        }
+    }
+
+
+    // ============================================================
+    // ERROR NORMALIZATION
+    // ============================================================
 
     normalizeError(error) {
 
