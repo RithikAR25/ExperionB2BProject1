@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PaymentGatewayProvider xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apexAdapter>RazorpayPaymentGatewayAdapter</apexAdapter>
+    <comments>Razorpay Test Mode B2B Commerce Payment Gateway</comments>
+    <idempotencySupported>Yes</idempotencySupported>
+    <masterLabel>Razorpay Test Provider</masterLabel>
+</PaymentGatewayProvider>

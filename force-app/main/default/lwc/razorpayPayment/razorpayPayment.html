@@ -1,0 +1,40 @@
+<template>
+    <!--
+        ============================================================
+        MODIFICATION SECTION
+        Razorpay payment UI.
+        ============================================================
+    -->
+
+    <section class="razorpay-payment">
+
+        <template if:true={isProcessing}>
+            <lightning-spinner
+                alternative-text="Processing payment">
+            </lightning-spinner>
+        </template>
+
+        <h2>Razorpay</h2>
+
+        <p>
+            Test Mode payment. No real money is charged.
+        </p>
+
+        <template if:true={errorMessage}>
+            <div class="error-message">
+                {errorMessage}
+            </div>
+        </template>
+
+        <button
+            type="button"
+            class="razorpay-button"
+            onclick={handlePay}
+            disabled={isProcessing}>
+
+            {buttonLabel}
+
+        </button>
+
+    </section>
+</template>
