@@ -1,6 +1,8 @@
 import { LightningElement, api, track } from 'lwc';
 
 import {
+    useCheckoutComponent,
+    CheckoutStage,
     loadCheckout,
     postAuthorizePayment
 } from 'commerce/checkoutApi';
@@ -11,8 +13,7 @@ import createOrder
 import getKeyId
     from '@salesforce/apex/RazorpayPaymentController.getKeyId';
 
-export default class RazorpayPayment
-    extends LightningElement {
+export default class RazorpayPayment extends useCheckoutComponent(LightningElement) {
 
     /*
      * ============================================================
@@ -36,212 +37,122 @@ export default class RazorpayPayment
     }
 
     async initialize() {
-
         try {
-
-            this.checkout =
-                await loadCheckout();
-
-            this.razorpayKey =
-                await getKeyId();
-
+            this.checkout = await loadCheckout();
+            this.razorpayKey = await getKeyId();
         } catch (error) {
-
-            this.errorMessage =
-                this.getErrorMessage(error);
+            this.errorMessage = this.getErrorMessage(error);
         }
     }
 
-    get buttonLabel() {
-        return this.isProcessing
-            ? 'Processing...'
-            : 'Pay with Razorpay';
+    /**
+     * Integrates with the official Salesforce Checkout Framework.
+     * The framework calls this when the user clicks 'Place Order'.
+     */
+    async stageAction(checkoutStage) {
+        if (checkoutStage === CheckoutStage.PAYMENT) {
+            return await this.handlePaymentProcess();
+        }
+        return true;
     }
 
-    async handlePay() {
+    async handlePaymentProcess() {
+        return new Promise(async (resolve) => {
+            this.errorMessage = '';
+            this.isProcessing = true;
 
-        this.errorMessage = '';
-        this.isProcessing = true;
+            try {
+                if (!window.Razorpay) {
+                    throw new Error('Razorpay Checkout JavaScript is not loaded.');
+                }
 
-        try {
+                const checkout = this.checkout || await loadCheckout();
+                const amount = checkout?.cartSummary?.grandTotalAmount || checkout?.grandTotalAmount;
+                const currency = checkout?.cartSummary?.currencyIsoCode || checkout?.currencyIsoCode || 'USD';
 
-            if (!window.Razorpay) {
-                throw new Error(
-                    'Razorpay Checkout JavaScript is not loaded.'
-                );
-            }
+                if (!amount) {
+                    throw new Error('Unable to determine checkout amount.');
+                }
 
-            /*
-             * MODIFICATION:
-             * Always obtain the current checkout state.
-             */
-            const checkout =
-                this.checkout ||
-                await loadCheckout();
-
-            /*
-             * IMPORTANT:
-             * These property paths must be verified against the
-             * CheckoutInformation shape exposed by your current
-             * Salesforce API version.
-             */
-            const amount =
-                checkout?.cartSummary?.grandTotalAmount ||
-                checkout?.grandTotalAmount;
-
-            const currency =
-                checkout?.cartSummary?.currencyIsoCode ||
-                checkout?.currencyIsoCode ||
-                'USD';
-
-            if (!amount) {
-                throw new Error(
-                    'Unable to determine checkout amount.'
-                );
-            }
-
-            /*
-             * MODIFICATION:
-             * Create Razorpay Order on the Salesforce server.
-             */
-            const razorpayOrder =
-                await createOrder({
+                /*
+                 * MODIFICATION:
+                 * Create Razorpay Order on the Salesforce server.
+                 */
+                const razorpayOrder = await createOrder({
                     amount,
                     currencyCode: currency
                 });
 
-            const options = {
+                const options = {
+                    key: razorpayOrder.keyId,
+                    amount: razorpayOrder.amount,
+                    currency: razorpayOrder.currencyCode,
+                    order_id: razorpayOrder.orderId,
+                    name: 'Aria',
+                    description: 'B2B Commerce Test Payment',
+                    handler: async (response) => {
+                        try {
+                            /*
+                             * MODIFICATION:
+                             * Send Razorpay result to Salesforce PostAuth.
+                             */
+                            await postAuthorizePayment(
+                                this.checkoutId,
+                                response.razorpay_payment_id,
+                                undefined,
+                                {
+                                    razorpayOrderId: razorpayOrder.orderId,
+                                    razorpaySignature: response.razorpay_signature
+                                }
+                            );
 
-                key:
-                    razorpayOrder.keyId,
+                            this.isProcessing = false;
+                            resolve(true); // Tell the framework payment was successful, proceed to PLACE_ORDER
 
-                amount:
-                    razorpayOrder.amount,
-
-                currency:
-                    razorpayOrder.currencyCode,
-
-                order_id:
-                    razorpayOrder.orderId,
-
-                name:
-                    'Aria',
-
-                description:
-                    'B2B Commerce Test Payment',
-
-                handler:
-                    (response) =>
-                        this.handleSuccess(
-                            response,
-                            razorpayOrder
-                        ),
-
-                modal: {
-                    ondismiss:
-                        () => {
-                            this.isProcessing =
-                                false;
+                        } catch (error) {
+                            this.isProcessing = false;
+                            this.errorMessage = this.getErrorMessage(error);
+                            this.dispatchUpdateErrorAsync({ message: this.errorMessage });
+                            resolve(false); // Stop checkout
                         }
-                }
-            };
-
-            const razorpay =
-                new window.Razorpay(
-                    options
-                );
-
-            razorpay.on(
-                'payment.failed',
-                (response) => {
-
-                    this.isProcessing =
-                        false;
-
-                    this.errorMessage =
-                        response?.error?.description ||
-                        'Razorpay payment failed.';
-                }
-            );
-
-            razorpay.open();
-
-        } catch (error) {
-
-            this.isProcessing =
-                false;
-
-            this.errorMessage =
-                this.getErrorMessage(error);
-        }
-    }
-
-    async handleSuccess(
-        response,
-        razorpayOrder
-    ) {
-
-        try {
-
-            /*
-             * ====================================================
-             * MODIFICATION:
-             * Send Razorpay result to Salesforce PostAuth.
-             *
-             * paymentsData is passed to the Payment Gateway Adapter
-             * as additionalData.
-             * ====================================================
-             */
-            await postAuthorizePayment(
-                this.checkoutId,
-                response.razorpay_payment_id,
-                undefined,
-                {
-                    razorpayOrderId:
-                        razorpayOrder.orderId,
-
-                    razorpaySignature:
-                        response.razorpay_signature
-                }
-            );
-
-            this.isProcessing =
-                false;
-
-            this.dispatchEvent(
-                new CustomEvent(
-                    'paymentauthorized',
-                    {
-                        bubbles: true,
-                        composed: true
+                    },
+                    modal: {
+                        ondismiss: () => {
+                            this.isProcessing = false;
+                            this.errorMessage = 'Payment cancelled by user.';
+                            this.dispatchUpdateErrorAsync({ message: this.errorMessage });
+                            resolve(false); // Stop checkout
+                        }
                     }
-                )
-            );
+                };
 
-        } catch (error) {
+                const razorpay = new window.Razorpay(options);
 
-            this.isProcessing =
-                false;
+                razorpay.on('payment.failed', (response) => {
+                    this.isProcessing = false;
+                    this.errorMessage = response?.error?.description || 'Razorpay payment failed.';
+                    this.dispatchUpdateErrorAsync({ message: this.errorMessage });
+                    resolve(false); // Stop checkout
+                });
 
-            this.errorMessage =
-                this.getErrorMessage(error);
-        }
+                razorpay.open();
+
+            } catch (error) {
+                this.isProcessing = false;
+                this.errorMessage = this.getErrorMessage(error);
+                this.dispatchUpdateErrorAsync({ message: this.errorMessage });
+                resolve(false);
+            }
+        });
     }
 
     getErrorMessage(error) {
-
-        if (
-            error?.body?.message
-        ) {
+        if (error?.body?.message) {
             return error.body.message;
         }
-
-        if (
-            error?.message
-        ) {
+        if (error?.message) {
             return error.message;
         }
-
         return 'Payment failed. Please try again.';
     }
 }

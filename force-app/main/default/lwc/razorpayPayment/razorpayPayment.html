@@ -18,23 +18,15 @@
 
         <p>
             Test Mode payment. No real money is charged.
+            <br/><br/>
+            <strong>Click "Place Order" below to open the secure payment window.</strong>
         </p>
 
         <template if:true={errorMessage}>
-            <div class="error-message">
+            <div class="error-message" style="color: red; margin-top: 10px;">
                 {errorMessage}
             </div>
         </template>
-
-        <button
-            type="button"
-            class="razorpay-button"
-            onclick={handlePay}
-            disabled={isProcessing}>
-
-            {buttonLabel}
-
-        </button>
 
     </section>
 </template>
