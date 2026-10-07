@@ -42,6 +42,7 @@ public with sharing class ApprovalGateController {
                 Requested_Amount__c,
                 Currency_Iso_Code__c,
                 Cart_Id__c,
+                Cart_Last_Modified__c,
                 Requested_At__c,
                 Decision_At__c,
                 Decision_Notes__c,
@@ -57,8 +58,20 @@ public with sharing class ApprovalGateController {
         if (requests.isEmpty()) {
             return null;
         }
+        
+        Approval_Request__c request = requests[0];
 
-        return toState(requests[0]);
+        // If the cart was modified after the approval snapshot, the approval is stale
+        if (request.Cart_Last_Modified__c != null && cart.LastModifiedDate > request.Cart_Last_Modified__c) {
+            return null;
+        }
+
+        // If the cart total amount changed, the approval is stale
+        if (request.Requested_Amount__c != null && cart.GrandTotalAmount != null && request.Requested_Amount__c != cart.GrandTotalAmount) {
+            return null;
+        }
+
+        return toState(request);
     }
 
 
